@@ -1,0 +1,88 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Guess a Number</title>
+    <script src="guessgame.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="well row">
+            <h1 class="col-xs-12 text-center">Guess!</h1>
+            <h4 class="col-xs-4 text-center"><span id="timer">33</span> s</h4>
+            <div class="col-xs-4" id="guess">
+                <form class="input-group" id="guess-form">
+                    <input id="guess-input" type="number" min="1" max="100" class="form-control" placeholder="My guess is...">
+                    <span class="input-group-btn">
+                        <button id="guess-button" class="btn btn-primary" type="submit">?</button>
+                    </span>
+                </form>
+            </div>
+            <div class="col-xs-4">
+                <form class="input-group" id="start-form">
+                    <input id="name-input" type="text" class="form-control" placeholder="My name is...">
+                    <span class="input-group-btn">
+                        <button id="start-button" class="btn btn-default" type="submit" disabled="disabled">Start</button>
+                    </span>
+                </form>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 col-md-push-6" id="guesses">
+                <table id="guesses" class="table table-striped table-responsive">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th class="text-right">#</th>
+                            <th>&lt; / &gt;</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th>3</th>
+                            <td class="text-right">44</td>
+                            <td class="bg-success">!!!</td>
+                        </tr>
+                        <tr>
+                            <th>2</th>
+                            <td class="text-right">30</td>
+                            <td class="bg-danger">&lt;</td>
+                        </tr>
+                        <tr>
+                            <th>1</th>
+                            <td class="text-right">55</td>
+                            <td class="bg-danger">&gt;</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-6 col-md-pull-6">
+                <table id="toplist" class="table table-striped table-responsive">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Guesses</th>
+                            <th>Time (s)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th>1</th>
+                            <td>John Doe</td>
+                            <td>16</td>
+                            <td>24</td>
+                        </tr>
+                        <tr>
+                            <th>2</th>
+                            <td>Jane Doe</td>
+                            <td>17</td>
+                            <td>28</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
