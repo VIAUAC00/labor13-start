@@ -1,19 +1,12 @@
 {
-  "iisSettings": {
-    "windowsAuthentication": false,
-    "anonymousAuthentication": true,
-    "iisExpress": {
-      "applicationUrl": "http://localhost:10907/",
-      "sslPort": 0
-    }
-  },
   "profiles": {
-    "IIS Express": {
-      "commandName": "IISExpress",
+    "Watch": {
+      "commandName": "Executable",
+      "executablePath": "dotnet",
+      "commandLineArgs": "watch run",
       "launchBrowser": true,
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      }
+      "workingDirectory": "$(ProjectDir)",
+      "launchUrl": "http://localhost:7579"
     },
     "GuessWS": {
       "commandName": "Project",
@@ -21,7 +14,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
-      "applicationUrl": "http://localhost:10908/"
+      "applicationUrl": "http://localhost:7579/"
     }
   }
 }

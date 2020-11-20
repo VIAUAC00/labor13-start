@@ -1,32 +1,23 @@
 ﻿using Microsoft.AspNetCore.Http;
-using Newtonsoft.Json;
+using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.WebSockets;
-using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace GuessWS
 {
-    public class WebSocketServerMiddleware
+    public record WebSocketServerMiddleware(RequestDelegate Next, GameStateService GameState, ILogger<WebSocketServerMiddleware> Logger)
     {
-        public WebSocketServerMiddleware(RequestDelegate next, GameStateService gameState)
-        {
-            Next = next;
-            GameState = gameState;
-        }
-
-        public RequestDelegate Next { get; }
-        public GameStateService GameState { get; }
-
+        private static JsonSerializerOptions JsonOptions { get; } = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         public async Task Invoke(HttpContext context)
         {
             if (!context.WebSockets.IsWebSocketRequest)
             {
-                await Next(context);
+                await (Next?.Invoke(context) ?? Task.CompletedTask);
                 return;
             }
 
@@ -39,61 +30,80 @@ namespace GuessWS
             var timer = new Stopwatch();
             while (socket.CloseStatus == null)
             {
-                var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                var message = JsonConvert.DeserializeObject<Message>(Encoding.UTF8.GetString(buffer, 0, result.Count));
-                switch (message.Action)
+                try
                 {
-                    case "startGame":
-                        GameState.Randomize();
-                        timer.Restart();
-                        break;
-                    case "setName":
-                        player.Name = message.Name;
-                        break;
-                    case "guess":
-                        if (!timer.IsRunning)
-                            break;
-                        player.CurrentGuesses++;
-                        var val = GameState.CurrentValue;
-                        var respMessage = new GuessResponse 
-                        { 
-                            Name = player.Name,
-                            Guess = message.Guess,
-                            Value = val < message.Guess 
-                                ? "greater" 
-                                : val > message.Guess 
-                                    ? "less" 
-                                    : "correct",
-                            TimeInSeconds = (int)timer.Elapsed.TotalSeconds
-                        };
 
-                        if (respMessage.Value == "correct")
-                        {
-                            timer.Stop();
-                            GameState.Toplist.Add(new ToplistItem 
+                    var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                    var s = System.Text.Encoding.UTF8.GetString(buffer.AsSpan()[0..result.Count]);
+                    var message = JsonSerializer.Deserialize<Message>(buffer.AsSpan()[0..result.Count], JsonOptions);
+                    switch (message.Action)
+                    {
+                        case "startGame":
+                            GameState.Randomize();
+                            timer.Restart();
+                            break;
+                        case "setName":
+                            player.Name = message.Name;
+                            break;
+                        case "guess":
+                            if (!timer.IsRunning)
+                                break;
+                            player.CurrentGuesses++;
+                            var val = GameState.CurrentValue;
+                            var respMessage = new GuessResponse
                             {
                                 Name = player.Name,
-                                TimeInSeconds = (int)timer.Elapsed.TotalSeconds,
-                                Guesses = player.CurrentGuesses
-                            });
-                            GameState.Toplist = GameState.Toplist.OrderBy(e => e.Guesses).ThenBy(e => e.TimeInSeconds).ToList();
-                            player.CurrentGuesses = 0;
-                        }
+                                Guess = message.Guess,
+                                Value = val > message.Guess
+                                    ? "greater"
+                                    : val < message.Guess
+                                        ? "less"
+                                        : "correct",
+                                TimeInSeconds = (int)timer.Elapsed.TotalSeconds
+                            };
 
-                        var response = new ArraySegment<byte>(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(respMessage)));
-                        foreach(var client in GameState.Clients.ToList())
-                        {
-                            await client.Value.Socket.SendAsync(response, WebSocketMessageType.Text, true, CancellationToken.None);
-                        }
-                        break;
-                    case "toplist":
-                        await socket.SendAsync(
-                            new ArraySegment<byte>(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(GameState.Toplist))),
-                            WebSocketMessageType.Text,
-                            true,
-                            CancellationToken.None);
-                        break;
+                            if (respMessage.Value == "correct")
+                            {
+                                timer.Stop();
+                                GameState.Toplist.Add(new ToplistItem
+                                {
+                                    Name = player.Name,
+                                    TimeInSeconds = (int)timer.Elapsed.TotalSeconds,
+                                    Guesses = player.CurrentGuesses
+                                });
+                                GameState.Toplist = GameState.Toplist.OrderBy(e => e.Guesses).ThenBy(e => e.TimeInSeconds).ToList();
+                                player.CurrentGuesses = 0;
+                            }
+
+                            var response = new ArraySegment<byte>(JsonSerializer.SerializeToUtf8Bytes(respMessage, JsonOptions));
+                            foreach (var client in GameState.Clients.ToList())
+                            {
+                                try
+                                {
+                                    await client.Value.Socket.SendAsync(response, WebSocketMessageType.Text, true, CancellationToken.None);
+                                }
+                                catch (Exception ex)
+                                {
+                                    GameState.Clients.TryRemove(client.Key, out _);
+                                    Logger.LogWarning(ex, "Error sending response to client.");
+                                }
+                            }
+                            break;
+                        case "toplist":
+                            await socket.SendAsync(
+                                new ArraySegment<byte>(JsonSerializer.SerializeToUtf8Bytes(GameState.Toplist, JsonOptions)),
+                                WebSocketMessageType.Text,
+                                true,
+                                CancellationToken.None);
+                            break;
+                    }
                 }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Error processing client request.");
+                }
+
+
             }
             GameState.Clients.TryRemove(socketId, out var _);
         }
